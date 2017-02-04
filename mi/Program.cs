@@ -14,18 +14,24 @@ namespace mi
     {
         private byte[] Vibration = { 0x20, 0x00, 0x00 };
         private Mutex rumble_mutex = new Mutex();
+        private byte battery = 0;
 
         public Xiaomi_gamepad(HidDevice Device, ScpBus scpBus, int index)
         {
             Device.WriteFeatureData(Vibration);
 
             Thread rThread = new Thread(() => rumble_thread(Device));
-            // rThread.Priority = ThreadPriority.BelowNormal; 
+            // rThread.Priority = ThreadPriority.BelowNormal;
             rThread.Start();
 
             Thread iThread = new Thread(() => input_thread(Device, scpBus, index));
             iThread.Priority = ThreadPriority.Highest;
             iThread.Start();
+        }
+
+        public byte get_battery()
+        {
+            return battery;
         }
 
         private void rumble_thread(HidDevice Device)
@@ -54,7 +60,7 @@ namespace mi
         {
             scpBus.PlugIn(index);
             X360Controller controller = new X360Controller();
-            int timeout = 30;
+            int timeout = 10;
             long last_changed = 0;
             long last_mi_button = 0;
             while (true)
@@ -87,7 +93,8 @@ namespace mi
                     if ((currentState[2] & 8) != 0) Buttons |= X360Buttons.Start;
                     if ((currentState[2] & 4) != 0) Buttons |= X360Buttons.Back;
 
-
+                    /* #20170202 dattql battery */
+                    battery = currentState[19];
 
                     if ((currentState[20] & 1) != 0)
                     {
@@ -228,6 +235,8 @@ namespace mi
             ScpBus scpBus = new ScpBus();
             scpBus.UnplugAll();
             global_scpBus = scpBus;
+            byte lastBattery = 0;
+            int firstIndex = 1;
 
             handler = new ConsoleEventDelegate(ConsoleEventCallback);
             SetConsoleCtrlHandler(handler, true);
@@ -284,6 +293,7 @@ namespace mi
 
 
                 gamepads[index - 1] = new Xiaomi_gamepad(Device, scpBus, index);
+                firstIndex = index;
                 ++index;
 
                 if (index >= 5)
@@ -297,6 +307,13 @@ namespace mi
             while (true)
             {
                 Thread.Sleep(1000);
+                byte battery = gamepads[firstIndex - 1].get_battery();
+                if (battery != lastBattery)
+                {
+                    //byte battery_lvl = (byte)(battery / 255) * 100;
+                    lastBattery = battery;
+                    Console.WriteLine("Battery level: {0}%", battery);
+                }
             }
         }
 

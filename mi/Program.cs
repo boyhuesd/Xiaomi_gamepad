@@ -60,7 +60,7 @@ namespace mi
         {
             scpBus.PlugIn(index);
             X360Controller controller = new X360Controller();
-            int timeout = 10;
+            int timeout = 1;
             long last_changed = 0;
             long last_mi_button = 0;
             while (true)
